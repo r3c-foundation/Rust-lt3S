@@ -62,5 +62,5 @@ If you believe in sustainable Rust infrastructure, consider supporting the ecosy
 Licensed under the [MIT License](LICENSE).  
 © 2025 R3C Foundation – All rights reserved for open use.
 
-
+📜 Read the [Rust-lt3S Manifesto](MANIFESTO.md)
 ---
