@@ -1,4 +1,7 @@
-name: 🦀 Rust-lt3S Autonomous Stable Build (3OS + Verify)
+# 🔖 R3C Autonomous Stable Release v7 (3OS + Windows Fix + Integrity)
+# Rust-LT3S | Ubuntu / macOS / Windows 완전 대응 버전
+
+name: 🔖 R3C Autonomous Stable Release v7 (3OS + Integrity)
 
 on:
   push:
@@ -6,19 +9,19 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"  # 매일 자정 UTC
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: rust-lt3s-stable
+  group: stable-release
   cancel-in-progress: false
 
 jobs:
-  build-and-verify:
-    name: "3OS Build + Verify"
+  build-and-release:
+    name: "3OS Build + Release"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,40 +35,48 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 🦀 Build Rust-lt3S Core
+      - name: 🦀 Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: 🧱 Build Rust-LT3S
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           mkdir -p build
-          echo "🔧 Simulating Rust-lt3S build for ${{ matrix.os }}"
-          echo "Rust-lt3S build success for ${{ matrix.os }}" > build/result.txt
+          cargo build --release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp target/release/*.exe build/rust-lt3s.exe
+          else
+            cp target/release/rust-lt3s build/rust-lt3s
+          fi
 
-      - name: 📦 Package Artifact
+      - name: 📦 Package artifacts
         shell: bash
         run: |
-          zip -r rust-lt3s-${{ matrix.os }}.zip build/
-          sha256sum rust-lt3s-${{ matrix.os }}.zip > rust-lt3s-${{ matrix.os }}.sha256
-          echo "✅ SHA256 generated"
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            zip -j rust-lt3s-windows-latest.zip build/rust-lt3s.exe
+            sha256sum rust-lt3s-windows-latest.zip > rust-lt3s-windows-latest.sha256
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            zip -j rust-lt3s-macos-latest.zip build/rust-lt3s
+            sha256sum rust-lt3s-macos-latest.zip > rust-lt3s-macos-latest.sha256
+          else
+            zip -j rust-lt3s-ubuntu-latest.zip build/rust-lt3s
+            sha256sum rust-lt3s-ubuntu-latest.zip > rust-lt3s-ubuntu-latest.sha256
+          fi
 
-      - name: 🔍 Verify Integrity
-        shell: bash
-        run: |
-          set -e
-          echo "🧩 Verifying SHA256 integrity..."
-          sha256sum -c rust-lt3s-${{ matrix.os }}.sha256
-          echo "✅ Integrity verified successfully."
-
-      - name: 🚀 Release
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            rust-lt3s-${{ matrix.os }}.zip
-            rust-lt3s-${{ matrix.os }}.sha256
           tag_name: ${{ env.TAG }}
           name: ${{ env.TAG }}
-          body: |
-            🔒 Verified LT3S release for **${{ matrix.os }}**
-            - Includes build artifact + SHA256 checksum
-            - Automatically verified for integrity
+          files: |
+            *.zip
+            *.sha256
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
